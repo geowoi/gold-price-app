@@ -21,6 +21,9 @@ def load_data():
 
 data = load_data()
 
+# 🔧 FIX ERROR
+data["Close"] = pd.to_numeric(data["Close"], errors="coerce")
+
 # ======================
 # Statistik
 # ======================
@@ -42,7 +45,6 @@ st.line_chart(data.set_index("Date")["Close"])
 # ======================
 st.subheader("🤖 Prediksi Harga Emas (Machine Learning)")
 
-# Siapkan data
 data["Date_ordinal"] = data["Date"].map(pd.Timestamp.toordinal)
 X = data[["Date_ordinal"]]
 y = data["Close"]
@@ -50,15 +52,14 @@ y = data["Close"]
 model = LinearRegression()
 model.fit(X, y)
 
-# Input prediksi
 days = st.slider("Prediksi berapa hari ke depan?", 1, 180, 30)
+
 future_dates = np.array([
     data["Date_ordinal"].max() + i for i in range(1, days + 1)
 ]).reshape(-1, 1)
 
 predictions = model.predict(future_dates)
 
-# DataFrame hasil prediksi
 future_df = pd.DataFrame({
     "Hari ke-": range(1, days + 1),
     "Prediksi Harga ($)": predictions
@@ -66,15 +67,13 @@ future_df = pd.DataFrame({
 
 st.dataframe(future_df.head())
 
-# Grafik prediksi
-st.subheader("📈 Grafik Prediksi Harga Emas")
 fig, ax = plt.subplots()
 ax.plot(data["Date"], data["Close"], label="Data Historis")
 ax.plot(
-    pd.date_range(data["Date"].iloc[-1], periods=days+1, freq="D")[1:],
+    pd.date_range(data["Date"].iloc[-1], periods=days + 1, freq="D")[1:],
     predictions,
-    label="Prediksi",
-    linestyle="--"
+    linestyle="--",
+    label="Prediksi"
 )
 ax.legend()
 st.pyplot(fig)

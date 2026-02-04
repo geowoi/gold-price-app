@@ -1,34 +1,31 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
-import numpy as np
 
 st.set_page_config(page_title="Gold Price App", layout="wide")
-
-st.title("📈 Aplikasi Analisis & Prediksi Harga Emas")
-st.write("Sumber data publik (CSV), diproses secara robust")
+st.title("📈 Gold Price Analysis & Prediction")
+st.write("Sumber data publik & stabil (LBMA Gold Price)")
 
 # ======================
-# Load data (ANTI ERROR)
+# LOAD DATA (STABIL)
 # ======================
 @st.cache_data
 def load_data():
-    url = "https://stooq.pl/q/d/l/?s=gold&i=d"
+    url = "https://data.nasdaq.com/api/v3/datasets/LBMA/GOLD.csv"
     df = pd.read_csv(url)
 
-    # 🔒 Normalisasi nama kolom (super penting)
-    df.columns = [c.strip().lower() for c in df.columns]
+    # Kolom PASTI ADA
+    df = df[["Date", "USD (AM)"]].rename(columns={
+        "Date": "date",
+        "USD (AM)": "close"
+    })
 
-    # Pastikan kolom inti ada
-    required_cols = {"date", "close"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError(f"Kolom tidak ditemukan. Kolom tersedia: {df.columns}")
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["date"] = pd.to_datetime(df["date"])
     df["close"] = pd.to_numeric(df["close"], errors="coerce")
 
-    df = df.dropna(subset=["date", "close"])
+    df = df.dropna()
     df = df.sort_values("date")
 
     return df
@@ -36,28 +33,29 @@ def load_data():
 data = load_data()
 
 # ======================
-# Statistik
+# METRICS
 # ======================
 st.subheader("📊 Statistik Harga Emas")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Harga Tertinggi", f"${data['close'].max():.2f}")
-col2.metric("Harga Terendah", f"${data['close'].min():.2f}")
-col3.metric("Rata-rata Harga", f"${data['close'].mean():.2f}")
+c1, c2, c3 = st.columns(3)
+c1.metric("Harga Tertinggi", f"${data['close'].max():,.2f}")
+c2.metric("Harga Terendah", f"${data['close'].min():,.2f}")
+c3.metric("Rata-rata Harga", f"${data['close'].mean():,.2f}")
 
 # ======================
-# Grafik Historis
+# GRAFIK HISTORIS
 # ======================
-st.subheader("📉 Grafik Harga Emas Historis")
+st.subheader("📉 Grafik Historis Harga Emas")
 st.line_chart(data.set_index("date")["close"])
 
 # ======================
-# Prediksi Harga
+# PREDIKSI
 # ======================
-st.subheader("🤖 Prediksi Harga Emas (Machine Learning)")
+st.subheader("🤖 Prediksi Harga Emas (Linear Regression)")
 
-data["date_ordinal"] = data["date"].map(pd.Timestamp.toordinal)
-X = data[["date_ordinal"]]
+data["ordinal"] = data["date"].map(pd.Timestamp.toordinal)
+
+X = data[["ordinal"]]
 y = data["close"]
 
 model = LinearRegression()
@@ -65,11 +63,11 @@ model.fit(X, y)
 
 days = st.slider("Prediksi berapa hari ke depan?", 1, 180, 30)
 
-future_ordinals = np.array([
-    data["date_ordinal"].max() + i for i in range(1, days + 1)
-]).reshape(-1, 1)
+future_ord = np.array(
+    [data["ordinal"].max() + i for i in range(1, days + 1)]
+).reshape(-1, 1)
 
-predictions = model.predict(future_ordinals)
+pred = model.predict(future_ord)
 
 future_dates = pd.date_range(
     start=data["date"].iloc[-1],
@@ -79,15 +77,15 @@ future_dates = pd.date_range(
 
 pred_df = pd.DataFrame({
     "Tanggal": future_dates,
-    "Prediksi Harga ($)": predictions
+    "Prediksi Harga ($)": pred
 })
 
-st.dataframe(pred_df)
+st.dataframe(pred_df, use_container_width=True)
 
 fig, ax = plt.subplots()
-ax.plot(data["date"], data["close"], label="Data Historis")
-ax.plot(future_dates, predictions, "--", label="Prediksi")
+ax.plot(data["date"], data["close"], label="Historis")
+ax.plot(future_dates, pred, "--", label="Prediksi")
 ax.legend()
 st.pyplot(fig)
 
-st.caption("Aplikasi AI — Data publik CSV, Streamlit, Machine Learning")
+st.caption("Data: LBMA Gold Price | Streamlit + ML")

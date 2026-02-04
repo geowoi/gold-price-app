@@ -16,8 +16,13 @@ st.write("Data diambil dari Stooq (sumber publik & stabil)")
 def load_data():
     url = "https://stooq.pl/q/d/l/?s=gold&i=d"
     data = pd.read_csv(url)
+
+    # Rename kolom biar konsisten
+    data.columns = [c.capitalize() for c in data.columns]
+
     data["Date"] = pd.to_datetime(data["Date"])
     data = data.sort_values("Date")
+
     return data
 
 data = load_data()
